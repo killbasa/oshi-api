@@ -1,0 +1,54 @@
+name: Publish
+
+on:
+  workflow_dispatch:
+  # push:
+  #   branches:
+  #     - main
+  #   paths:
+  #     - "src/**"
+  #     - "Cargo.lock"
+  #     - "Cargo.toml"
+  #     - "Dockerfile"
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.head_ref || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish-latest:
+    name: Build and publish (latest)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out Git repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Setup Docker
+        uses: docker/setup-buildx-action@b5ca514318bd6ebac0fb2aedd5d36ec1b5c232a2
+
+      - name: Get metadata
+        id: metadata
+        uses: docker/metadata-action@902fa8ec7d6ecbf8d84d538b9b233a880e428804
+        with:
+          images: ghcr.io/killbasa/oshi-api
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@471d1dc4e07e5cdedd4c2171150001c434f0b7a4
+        with:
+          push: true
+          context: .
+          tags: ${{ steps.metadata.outputs.tags }}
+          labels: ${{ steps.metadata.outputs.labels }}
