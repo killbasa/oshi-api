@@ -15,7 +15,7 @@ pub struct YoutubeConfig {
 pub struct Config {
     pub server: ServerConfig,
     pub youtube: YoutubeConfig,
-    pub git_repo: String,
+    pub browser_redirect: String,
     pub oshi: HashMap<String, String>,
 }
 
@@ -27,7 +27,7 @@ impl Config {
         };
 
         Config {
-            git_repo: "https://github.com/killbasa/oshi-api".into(),
+            browser_redirect: "https://github.com/killbasa/oshi-api".into(),
             server: ServerConfig {
                 host: env::var("HOST").unwrap_or("127.0.0.1".to_string()),
                 port: env::var("PORT").unwrap_or("3000".to_string()).parse().unwrap_or(3000),

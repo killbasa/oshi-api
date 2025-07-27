@@ -26,6 +26,8 @@ use axum_extra::{TypedHeader, headers::UserAgent};
 use config::CONFIG;
 use dotenv::dotenv;
 use pages::{PageContext, Pages, Render};
+use reqwest::Method;
+use tower_http::cors;
 use utils::is_term;
 
 #[derive(Clone)]
@@ -39,12 +41,17 @@ async fn main() -> Result<()> {
     sqlite::init_db();
     scheduler::init_scheduler().await.expect("failed to init scheduler");
 
+    let cors = cors::CorsLayer::new() //
+        .allow_methods([Method::GET])
+        .allow_origin(cors::Any);
+
     let state = AppState {};
 
     let router = Router::new() //
-        .fallback(Redirect::temporary(&CONFIG.git_repo))
+        .fallback(Redirect::temporary(&CONFIG.browser_redirect)) // This should handle term too
         .route("/", get(get_root))
         .route("/list", get(get_list))
+        .layer(cors)
         .with_state(state);
 
     let host = Ipv4Addr::from_str(&CONFIG.server.host).expect("invalid host");
@@ -70,7 +77,7 @@ async fn get_root(
     let mut headers = HeaderMap::new();
 
     if !is_term(&user_agent) {
-        headers.insert("Location", CONFIG.git_repo.parse().unwrap());
+        headers.insert("Location", CONFIG.browser_redirect.parse().unwrap());
         return (StatusCode::TEMPORARY_REDIRECT, headers, "Redirecting to GitHub...".to_string());
     }
 
@@ -103,7 +110,7 @@ async fn get_list(
     let mut headers = HeaderMap::new();
 
     if !is_term(&user_agent) {
-        headers.insert("Location", CONFIG.git_repo.parse().unwrap());
+        headers.insert("Location", CONFIG.browser_redirect.parse().unwrap());
         return (StatusCode::TEMPORARY_REDIRECT, headers, "Redirecting to GitHub...".to_string());
     }
 

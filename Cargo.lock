@@ -1003,6 +1003,7 @@ dependencies = [
  "serde",
  "tokio",
  "tokio-cron-scheduler",
+ "tower-http",
  "tracing",
  "tracing-subscriber",
 ]
