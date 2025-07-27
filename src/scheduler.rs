@@ -33,10 +33,9 @@ pub async fn init_scheduler() -> Result<()> {
         })?)
         .await?;
 
-    // run every 6 hours
-    // min quota usage: 4
+    // 12am, every sunday
     scheduler
-        .add(Job::new_async("0 0 0/6 * * *", |_, _| {
+        .add(Job::new_async("0 0 0 * * 0", |_, _| {
             Box::pin(async {
                 update_channels().await.expect("failed to update channel");
             })

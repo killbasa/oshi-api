@@ -47,7 +47,7 @@ pub async fn refresh_page(page: Pages) -> Result<()> {
                 cache.lock().unwrap().remove(&None);
 
                 let ctx = PageContext { channel_id: None };
-                let content = list::Page {}.render(ctx).await?;
+                let content = page.render(ctx).await?;
 
                 cache.lock().unwrap().insert(None, content);
             }
