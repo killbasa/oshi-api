@@ -35,6 +35,8 @@ pub async fn refresh_page(page: Pages) -> Result<()> {
                 channel_ids.push("all".to_string());
 
                 for channel_id in channel_ids {
+                    cache.lock().unwrap().remove(&Some(channel_id.clone()));
+
                     let ctx = PageContext { channel_id: Some(channel_id.clone()) };
                     let content = page.render(ctx).await?;
 
@@ -42,6 +44,8 @@ pub async fn refresh_page(page: Pages) -> Result<()> {
                 }
             }
             Pages::List => {
+                cache.lock().unwrap().remove(&None);
+
                 let ctx = PageContext { channel_id: None };
                 let content = list::Page {}.render(ctx).await?;
 
