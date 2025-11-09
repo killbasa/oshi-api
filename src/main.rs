@@ -22,16 +22,15 @@ use axum::{
     response::Redirect,
     routing::get,
 };
-use axum_extra::{TypedHeader, headers::UserAgent};
 use config::CONFIG;
 use dotenv::dotenv;
 use pages::{PageContext, Pages, Render};
-use reqwest::Method;
+use reqwest::{
+    Method,
+    header::{ACCEPT, USER_AGENT},
+};
 use tower_http::cors;
 use utils::is_term;
-
-#[derive(Clone)]
-struct AppState {}
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -45,14 +44,11 @@ async fn main() -> Result<()> {
         .allow_methods([Method::GET])
         .allow_origin(cors::Any);
 
-    let state = AppState {};
-
     let router = Router::new() //
         .fallback(Redirect::temporary(&CONFIG.browser_redirect)) // This should handle term too
         .route("/", get(get_root))
         .route("/list", get(get_list))
-        .layer(cors)
-        .with_state(state);
+        .layer(cors);
 
     let host = Ipv4Addr::from_str(&CONFIG.server.host).expect("invalid host");
     let socket = SocketAddr::from((host, CONFIG.server.port));
@@ -72,51 +68,87 @@ async fn main() -> Result<()> {
 // GET /
 async fn get_root(
     query: Query<HashMap<String, String>>,
-    TypedHeader(user_agent): TypedHeader<UserAgent>,
+    req_headers: HeaderMap,
 ) -> impl axum::response::IntoResponse {
-    let mut headers = HeaderMap::new();
+    let mut res_headers = HeaderMap::new();
 
-    if !is_term(&user_agent) {
-        headers.insert("Location", CONFIG.browser_redirect.parse().unwrap());
-        return (StatusCode::TEMPORARY_REDIRECT, headers, "Redirecting to GitHub...".to_string());
+    let user_agent = req_headers.get(USER_AGENT);
+    let return_json = match req_headers.get(ACCEPT) {
+        Some(val) => match val.to_str() {
+            Ok(s) => s.contains("application/json"),
+            Err(_) => false,
+        },
+        None => false,
+    };
+
+    if !is_term(user_agent) && !return_json {
+        res_headers.insert("Location", CONFIG.browser_redirect.parse().unwrap());
+        return (
+            StatusCode::TEMPORARY_REDIRECT,
+            res_headers,
+            "Redirecting to GitHub...".to_string(),
+        );
     }
 
     let oshi = query.get("oshi").cloned();
-
-    let id: &Option<String> = if oshi.is_none() {
-        &Some("all".to_string())
-    } else if !CONFIG.oshi.contains_key(oshi.as_ref().unwrap()) {
-        &Some("invalid".to_string())
-    } else {
-        &oshi.clone().and_then(|alias| {
+    let id: &Option<String> = match &oshi {
+        None => &Some("all".to_string()),
+        Some(alias) if !CONFIG.oshi.contains_key(alias) => &Some("invalid".to_string()),
+        Some(_) => &oshi.clone().and_then(|alias| {
             CONFIG //
                 .oshi
                 .get(&alias)
                 .cloned()
-        })
+        }),
     };
 
     let ctx = PageContext { channel_id: id.clone() };
-    let content = Pages::Root.render(ctx).await.expect("failed to render page");
 
-    headers.insert(CONTENT_TYPE, "text/plain".parse().unwrap());
-    (StatusCode::OK, headers, content)
+    if return_json {
+        let content = Pages::Root.render_json(ctx).await.expect("failed to render json page");
+
+        res_headers.insert(CONTENT_TYPE, "application/json".parse().unwrap());
+        return (StatusCode::OK, res_headers, content);
+    }
+
+    let content = Pages::Root.render_text(ctx).await.expect("failed to render text page");
+
+    res_headers.insert(CONTENT_TYPE, "text/plain".parse().unwrap());
+    (StatusCode::OK, res_headers, content)
 }
 
 // GET /list
-async fn get_list(
-    TypedHeader(user_agent): TypedHeader<UserAgent>,
-) -> impl axum::response::IntoResponse {
-    let mut headers = HeaderMap::new();
+async fn get_list(req_headers: HeaderMap) -> impl axum::response::IntoResponse {
+    let mut res_headers = HeaderMap::new();
+    let user_agent = req_headers.get(USER_AGENT);
+    let return_json = match req_headers.get(ACCEPT) {
+        Some(val) => match val.to_str() {
+            Ok(s) => s.contains("application/json"),
+            Err(_) => false,
+        },
+        None => false,
+    };
 
-    if !is_term(&user_agent) {
-        headers.insert("Location", CONFIG.browser_redirect.parse().unwrap());
-        return (StatusCode::TEMPORARY_REDIRECT, headers, "Redirecting to GitHub...".to_string());
+    if !is_term(user_agent) && !return_json {
+        res_headers.insert("Location", CONFIG.browser_redirect.parse().unwrap());
+        return (
+            StatusCode::TEMPORARY_REDIRECT,
+            res_headers,
+            "Redirecting to GitHub...".to_string(),
+        );
     }
 
     let ctx = PageContext { channel_id: None };
-    let content = Pages::List.render(ctx).await.expect("failed to render page");
 
-    headers.insert(CONTENT_TYPE, "text/plain".parse().unwrap());
-    (StatusCode::OK, headers, content)
+    if return_json {
+        let content = Pages::Root.render_json(ctx).await.expect("failed to render json page");
+
+        res_headers.insert(CONTENT_TYPE, "application/json".parse().unwrap());
+        return (StatusCode::OK, res_headers, content);
+    }
+
+    let content = Pages::List.render_text(ctx).await.expect("failed to render text page");
+
+    res_headers.insert(CONTENT_TYPE, "text/plain".parse().unwrap());
+    (StatusCode::OK, res_headers, content)
 }

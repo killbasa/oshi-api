@@ -21,7 +21,6 @@ inherits = "release"
 [dependencies]
 anyhow               = "1.0.98"
 axum                 = "0.8.4"
-axum-extra           = { version = "0.10.1", features = ["typed-header"] }
 chrono               = "0.4.41"
 dotenv               = "0.15.0"
 once_cell            = "1.21.3"

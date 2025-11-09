@@ -7,7 +7,7 @@ use super::Render;
 pub struct Page {}
 
 impl Render for Page {
-    async fn render(&self, ctx: PageContext) -> Result<String> {
+    async fn render_text(&self, ctx: PageContext) -> Result<String> {
         if ctx.channel_id.is_some() && ctx.channel_id.as_ref().unwrap() == "invalid" {
             return Ok("that channel is not tracked".to_string());
         }
@@ -40,6 +40,56 @@ impl Render for Page {
         }
 
         Ok(video_list.join("\n"))
+    }
+
+    async fn render_json(&self, ctx: PageContext) -> Result<String> {
+        if ctx.channel_id.is_some() && ctx.channel_id.as_ref().unwrap() == "invalid" {
+            return Ok("that channel is not tracked".to_string());
+        }
+
+        let videos = if ctx.channel_id.is_none() || ctx.channel_id.as_ref().unwrap() == "all" {
+            sqlite::get_db_upcoming_videos(&None).unwrap_or_else(|e| {
+                tracing::error!("failed to fetch all upcoming videos: {}", e);
+                Vec::new()
+            })
+        } else {
+            let channel_id = ctx.channel_id.as_ref().unwrap();
+            sqlite::get_db_upcoming_videos(&Some(channel_id.clone())).unwrap_or_else(|err| {
+                tracing::error!(
+                    "failed to fetch upcoming videos for channel {}: {}",
+                    channel_id,
+                    err
+                );
+                Vec::new()
+            })
+        };
+
+        if videos.is_empty() {
+            return Ok("{\"videos\": []}".to_string());
+        }
+
+        let mut video_list = Vec::<String>::new();
+
+        for video in videos {
+            let channel_name = video.channel_name.clone().unwrap_or("null".to_string());
+            let channel_id = video.channel_id.clone();
+            let channel = format!("{{\"name\": \"{}\", \"id\": \"{}\"}}", channel_name, channel_id);
+
+            let status = match video.end_time.is_some() {
+                true => "ended",
+                false => match video.start_time.is_some() {
+                    true => "live",
+                    false => "upcoming",
+                },
+            };
+
+            video_list.push(format!(
+                "{{\"status\": \"{}\", \"title\": \"{}\", \"url\": \"https://www.youtube.com/watch?v={}\", \"id\": \"{}\",\"channel\": {}}}",
+                status, video.title, video.id, video.id, channel
+            ));
+        }
+
+        Ok(format!("{{\"videos\": [{}]}}", video_list.join(",")))
     }
 }
 
