@@ -71,8 +71,16 @@ async fn get_root(
     req_headers: HeaderMap,
 ) -> impl axum::response::IntoResponse {
     let mut res_headers = HeaderMap::new();
-
     let user_agent = req_headers.get(USER_AGENT);
+
+    let return_text = match req_headers.get(ACCEPT) {
+        Some(val) => match val.to_str() {
+            Ok(s) => s.contains("text/plain") || is_term(user_agent),
+            Err(_) => false,
+        },
+        None => false,
+    };
+
     let return_json = match req_headers.get(ACCEPT) {
         Some(val) => match val.to_str() {
             Ok(s) => s.contains("application/json"),
@@ -81,7 +89,7 @@ async fn get_root(
         None => false,
     };
 
-    if !is_term(user_agent) && !return_json {
+    if !return_text && !return_json {
         res_headers.insert("Location", CONFIG.browser_redirect.parse().unwrap());
         return (
             StatusCode::TEMPORARY_REDIRECT,
@@ -121,6 +129,15 @@ async fn get_root(
 async fn get_list(req_headers: HeaderMap) -> impl axum::response::IntoResponse {
     let mut res_headers = HeaderMap::new();
     let user_agent = req_headers.get(USER_AGENT);
+
+    let return_text = match req_headers.get(ACCEPT) {
+        Some(val) => match val.to_str() {
+            Ok(s) => s.contains("text/plain") || is_term(user_agent),
+            Err(_) => false,
+        },
+        None => false,
+    };
+
     let return_json = match req_headers.get(ACCEPT) {
         Some(val) => match val.to_str() {
             Ok(s) => s.contains("application/json"),
@@ -129,7 +146,7 @@ async fn get_list(req_headers: HeaderMap) -> impl axum::response::IntoResponse {
         None => false,
     };
 
-    if !is_term(user_agent) && !return_json {
+    if !return_text && !return_json {
         res_headers.insert("Location", CONFIG.browser_redirect.parse().unwrap());
         return (
             StatusCode::TEMPORARY_REDIRECT,
