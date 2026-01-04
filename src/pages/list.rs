@@ -43,8 +43,8 @@ impl Render for Page {
         for (alias, id) in CONFIG.oshi.clone() {
             let channel = channels.iter().find(|c| c.id == id).unwrap();
             channel_list.push(format!(
-                "{{\"alias\": \"{}\", \"name\": \"{}\", \"id\": \"{}\"}}",
-                alias, channel.name, channel.id
+                "{{\"id\": \"{}\", \"alias\": \"{}\", \"name\": \"{}\", \"url\": \"https://www.youtube.com/channel/{}\"}}",
+                channel.id, alias, channel.name, channel.id
             ));
         }
 
