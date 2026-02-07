@@ -40,6 +40,7 @@ impl Config {
                 ("furi".into(), "UCb8dLvDvmZ-d92KEy_9oWog".into()),
                 ("phish".into(), "UC9iiZCKQ9jnIM7zZ_mRX_cg".into()),
                 ("mono".into(), "UCdubotSy4pPOsiaW4MrYn3Q".into()),
+                ("raki".into(), "UCtuoyOZhnxJ12pE294FdH8Q".into()),
             ]),
         }
     }
