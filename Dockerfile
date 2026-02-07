@@ -1,4 +1,4 @@
-FROM rust:1.92.0-slim-bookworm AS builder
+FROM rust:1.93.0-slim-bookworm AS builder
 
 WORKDIR /temp
 
@@ -11,7 +11,7 @@ COPY ./Cargo.toml ./Cargo.lock ./
 
 RUN cargo build --locked --release
 
-FROM debian:13.1-slim
+FROM debian:13.3-slim
 
 WORKDIR /etc/oshi-api
 
