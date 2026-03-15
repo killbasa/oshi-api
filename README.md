@@ -23,3 +23,7 @@ curl oshi.killbasa.com?oshi=<alias>
 ```
 curl oshi.killbasa.com/list
 ```
+
+## Response formats
+
+This API supports JSON and plain text responses. If you specify `Accept: application/json` in the request header the response will be in JSON. Otherwise, it will be in plain text.

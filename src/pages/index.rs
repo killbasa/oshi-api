@@ -12,21 +12,25 @@ impl Render for Page {
             return Ok("that channel is not tracked".to_string());
         }
 
-        let videos = if ctx.channel_id.is_none() || ctx.channel_id.as_ref().unwrap() == "all" {
-            sqlite::get_db_upcoming_videos(&None).unwrap_or_else(|e| {
+        let videos = match &ctx.channel_id {
+            Some(channel_id) if channel_id == "all" => sqlite::get_db_upcoming_videos(&None)
+                .unwrap_or_else(|e| {
+                    tracing::error!("failed to fetch all upcoming videos: {}", e);
+                    Vec::new()
+                }),
+            Some(channel_id) => sqlite::get_db_upcoming_videos(&Some(channel_id.clone()))
+                .unwrap_or_else(|err| {
+                    tracing::error!(
+                        "failed to fetch upcoming videos for channel {}: {}",
+                        channel_id,
+                        err
+                    );
+                    Vec::new()
+                }),
+            None => sqlite::get_db_upcoming_videos(&None).unwrap_or_else(|e| {
                 tracing::error!("failed to fetch all upcoming videos: {}", e);
                 Vec::new()
-            })
-        } else {
-            let channel_id = ctx.channel_id.as_ref().unwrap();
-            sqlite::get_db_upcoming_videos(&Some(channel_id.clone())).unwrap_or_else(|err| {
-                tracing::error!(
-                    "failed to fetch upcoming videos for channel {}: {}",
-                    channel_id,
-                    err
-                );
-                Vec::new()
-            })
+            }),
         };
 
         if videos.is_empty() {
@@ -47,21 +51,25 @@ impl Render for Page {
             return Ok("that channel is not tracked".to_string());
         }
 
-        let videos = if ctx.channel_id.is_none() || ctx.channel_id.as_ref().unwrap() == "all" {
-            sqlite::get_db_upcoming_videos(&None).unwrap_or_else(|e| {
+        let videos = match &ctx.channel_id {
+            Some(channel_id) if channel_id == "all" => sqlite::get_db_upcoming_videos(&None)
+                .unwrap_or_else(|e| {
+                    tracing::error!("failed to fetch all upcoming videos: {}", e);
+                    Vec::new()
+                }),
+            Some(channel_id) => sqlite::get_db_upcoming_videos(&Some(channel_id.clone()))
+                .unwrap_or_else(|err| {
+                    tracing::error!(
+                        "failed to fetch upcoming videos for channel {}: {}",
+                        channel_id,
+                        err
+                    );
+                    Vec::new()
+                }),
+            None => sqlite::get_db_upcoming_videos(&None).unwrap_or_else(|e| {
                 tracing::error!("failed to fetch all upcoming videos: {}", e);
                 Vec::new()
-            })
-        } else {
-            let channel_id = ctx.channel_id.as_ref().unwrap();
-            sqlite::get_db_upcoming_videos(&Some(channel_id.clone())).unwrap_or_else(|err| {
-                tracing::error!(
-                    "failed to fetch upcoming videos for channel {}: {}",
-                    channel_id,
-                    err
-                );
-                Vec::new()
-            })
+            }),
         };
 
         if videos.is_empty() {
