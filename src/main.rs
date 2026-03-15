@@ -32,13 +32,10 @@ use tokio::net::TcpListener;
 use tower_http::cors;
 use utils::is_term;
 
-use crate::utils::is_preview_bot;
-
 enum ResponseFormat {
     Text,
     Json,
     Browser,
-    OpenGraph,
 }
 
 fn negotiate(headers: &HeaderMap) -> ResponseFormat {
@@ -59,17 +56,12 @@ fn negotiate(headers: &HeaderMap) -> ResponseFormat {
         return ResponseFormat::Text;
     }
 
-    if is_preview_bot(user_agent) {
-        return ResponseFormat::OpenGraph;
-    }
-
     ResponseFormat::Browser
 }
 
-const CACHE_CONTROL_VALUE: HeaderValue = HeaderValue::from_static("public, max-age=300");
+const CACHE_CONTROL_VALUE: HeaderValue = HeaderValue::from_static("public, max-age=60");
 const JSON_HEADER: HeaderValue = HeaderValue::from_static("application/json");
 const TEXT_HEADER: HeaderValue = HeaderValue::from_static("text/plain");
-const HTML_HEADER: HeaderValue = HeaderValue::from_static("text/html");
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -122,10 +114,6 @@ async fn get_root(
             res_headers.insert(header::LOCATION, CONFIG.browser_redirect.parse().unwrap());
             (StatusCode::TEMPORARY_REDIRECT, res_headers, "Redirecting to GitHub...".to_string())
         }
-        ResponseFormat::OpenGraph => {
-            res_headers.insert(header::CONTENT_TYPE, HTML_HEADER);
-            (StatusCode::TEMPORARY_REDIRECT, res_headers, utils::ROOT_OG_HTML.to_string())
-        }
         format => {
             let oshi = query.get("oshi").cloned();
             let id: &Option<String> = match &oshi {
@@ -176,10 +164,6 @@ async fn get_list(req_headers: HeaderMap) -> impl axum::response::IntoResponse {
         ResponseFormat::Browser => {
             res_headers.insert(header::LOCATION, CONFIG.browser_redirect.parse().unwrap());
             (StatusCode::TEMPORARY_REDIRECT, res_headers, "Redirecting to GitHub...".to_string())
-        }
-        ResponseFormat::OpenGraph => {
-            res_headers.insert(header::CONTENT_TYPE, HTML_HEADER);
-            (StatusCode::TEMPORARY_REDIRECT, res_headers, utils::ROOT_OG_HTML.to_string())
         }
         format => {
             let ctx = PageContext { channel_id: None };
