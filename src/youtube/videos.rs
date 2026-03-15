@@ -1,13 +1,10 @@
 use anyhow::{Result, anyhow};
-use reqwest::{
-    ClientBuilder,
-    header::{ACCEPT, USER_AGENT},
-};
+use reqwest::header::{ACCEPT, USER_AGENT};
 
 use crate::config::CONFIG;
 
 use super::{
-    YoutubeVideo,
+    HTTP_CLIENT, YoutubeVideo,
     utils::{RawYoutubeVideo, VideoApiResponse},
     xml,
 };
@@ -28,12 +25,12 @@ pub async fn get_videos_api(video_ids: &[String]) -> Result<Vec<YoutubeVideo>> {
             chunk.join(",")
         );
 
-        let client = ClientBuilder::new()
-            .build()? //
+        let response = HTTP_CLIENT //
             .get(url)
-            .header(ACCEPT, "application/json");
+            .header(ACCEPT, "application/json")
+            .send()
+            .await?;
 
-        let response = client.send().await?;
         if response.status().as_u16() != 200 {
             return Err(anyhow!(response.status()));
         }
@@ -51,12 +48,12 @@ pub async fn get_videos_api(video_ids: &[String]) -> Result<Vec<YoutubeVideo>> {
 }
 
 pub async fn get_video_ids_xml(channel_id: &str) -> Result<Vec<String>> {
-    let client = ClientBuilder::new()
-        .build()? //
+    let response = HTTP_CLIENT
         .get(format!("https://www.youtube.com/feeds/videos.xml?channel_id={channel_id}"))
-        .header(USER_AGENT, WEB_USER_AGENT);
+        .header(USER_AGENT, WEB_USER_AGENT)
+        .send()
+        .await?;
 
-    let response = client.send().await?;
     if response.status().as_u16() != 200 {
         return Err(anyhow!(response.status()));
     }

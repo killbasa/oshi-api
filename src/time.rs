@@ -1,6 +1,5 @@
-use std::cmp::Ordering;
-
 use chrono::{Duration, TimeDelta, Utc};
+use std::cmp::Ordering;
 
 const TIME_FORMAT: &str = "%Y-%m-%d %H:%M";
 

@@ -16,7 +16,9 @@ pub async fn init_scheduler() -> Result<()> {
     scheduler
         .add(Job::new_async("30 14,29,44,59 * * * *", |_, _| {
             Box::pin(async {
-                check_new_videos().await.expect("failed to check new videos");
+                if let Err(e) = check_new_videos().await {
+                    tracing::error!("failed to check new videos: {e}");
+                }
             })
         })?)
         .await?;
@@ -26,9 +28,13 @@ pub async fn init_scheduler() -> Result<()> {
     scheduler
         .add(Job::new_async("0 0/5 * * * *", |_, _| {
             Box::pin(async {
-                check_existing_videos().await.expect("failed to update videos");
+                if let Err(e) = check_existing_videos().await {
+                    tracing::error!("failed to update videos: {e}");
+                }
 
-                pages::refresh_page(pages::Pages::Root).await.unwrap();
+                if let Err(e) = pages::refresh_page(pages::Pages::Root).await {
+                    tracing::error!("failed to refresh root page: {e}");
+                }
             })
         })?)
         .await?;
@@ -37,7 +43,9 @@ pub async fn init_scheduler() -> Result<()> {
     scheduler
         .add(Job::new_async("0 0 0 * * 0", |_, _| {
             Box::pin(async {
-                update_channels().await.expect("failed to update channel");
+                if let Err(e) = update_channels().await {
+                    tracing::error!("failed to update channels: {e}");
+                }
             })
         })?)
         .await?;

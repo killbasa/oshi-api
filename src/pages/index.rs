@@ -1,14 +1,35 @@
 use anyhow::Result;
+use serde::Serialize;
 
 use crate::{api::DbVideo, colors::Colorize, pages::PageContext, sqlite, time};
 
 use super::Render;
 
+#[derive(Serialize)]
+struct VideoChannel {
+    name: String,
+    id: String,
+}
+
+#[derive(Serialize)]
+struct VideoJson {
+    status: String,
+    title: String,
+    url: String,
+    id: String,
+    channel: VideoChannel,
+}
+
+#[derive(Serialize)]
+struct VideosResponse {
+    videos: Vec<VideoJson>,
+}
+
 pub struct Page {}
 
 impl Render for Page {
     async fn render_text(&self, ctx: PageContext) -> Result<String> {
-        if ctx.channel_id.is_some() && ctx.channel_id.as_ref().unwrap() == "invalid" {
+        if ctx.channel_id.as_deref() == Some("invalid") {
             return Ok("that channel is not tracked".to_string());
         }
 
@@ -37,18 +58,19 @@ impl Render for Page {
             return Ok("no upcoming streams".to_string());
         }
 
-        let mut video_list = Vec::<String>::new();
-
-        for video in videos {
-            video_list.push(format_video(&video));
-        }
+        let video_list: Vec<String> = videos //
+            .iter()
+            .map(format_video_text)
+            .collect();
 
         Ok(video_list.join("\n"))
     }
 
     async fn render_json(&self, ctx: PageContext) -> Result<String> {
-        if ctx.channel_id.is_some() && ctx.channel_id.as_ref().unwrap() == "invalid" {
-            return Ok("that channel is not tracked".to_string());
+        if ctx.channel_id.as_deref() == Some("invalid") {
+            return Ok(serde_json::to_string(
+                &serde_json::json!({"error": "that channel is not tracked"}),
+            )?);
         }
 
         let videos = match &ctx.channel_id {
@@ -72,36 +94,16 @@ impl Render for Page {
             }),
         };
 
-        if videos.is_empty() {
-            return Ok("{\"videos\": []}".to_string());
-        }
+        let video_list: Vec<VideoJson> = videos //
+            .iter()
+            .map(format_video_json)
+            .collect();
 
-        let mut video_list = Vec::<String>::new();
-
-        for video in videos {
-            let channel_name = video.channel_name.clone().unwrap_or("null".to_string());
-            let channel_id = video.channel_id.clone();
-            let channel = format!("{{\"name\": \"{}\", \"id\": \"{}\"}}", channel_name, channel_id);
-
-            let status = match video.end_time.is_some() {
-                true => "ended",
-                false => match video.start_time.is_some() {
-                    true => "live",
-                    false => "upcoming",
-                },
-            };
-
-            video_list.push(format!(
-                "{{\"status\": \"{}\", \"title\": \"{}\", \"url\": \"https://www.youtube.com/watch?v={}\", \"id\": \"{}\",\"channel\": {}}}",
-                status, video.title, video.id, video.id, channel
-            ));
-        }
-
-        Ok(format!("{{\"videos\": [{}]}}", video_list.join(",")))
+        Ok(serde_json::to_string(&VideosResponse { videos: video_list })?)
     }
 }
 
-fn format_video(video: &DbVideo) -> String {
+fn format_video_text(video: &DbVideo) -> String {
     let status: String = match video.end_time.is_some() {
         true => "[ended]".bright_purple(),
         false => match video.start_time.is_some() {
@@ -129,4 +131,25 @@ fn format_video(video: &DbVideo) -> String {
     }
 
     entry
+}
+
+fn format_video_json(video: &DbVideo) -> VideoJson {
+    let status = if video.end_time.is_some() {
+        "ended"
+    } else if video.start_time.is_some() {
+        "live"
+    } else {
+        "upcoming"
+    };
+
+    VideoJson {
+        status: status.to_string(),
+        title: video.title.clone(),
+        url: format!("https://www.youtube.com/watch?v={}", video.id),
+        id: video.id.clone(),
+        channel: VideoChannel {
+            name: video.channel_name.clone().unwrap_or_default(),
+            id: video.channel_id.clone(),
+        },
+    }
 }

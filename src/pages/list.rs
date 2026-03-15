@@ -1,8 +1,22 @@
 use anyhow::Result;
+use serde::Serialize;
 
 use crate::{colors::Colorize, config::CONFIG, pages::PageContext, sqlite};
 
 use super::Render;
+
+#[derive(Serialize)]
+struct ChannelJson {
+    id: String,
+    alias: String,
+    name: String,
+    url: String,
+}
+
+#[derive(Serialize)]
+struct ChannelsResponse {
+    channels: Vec<ChannelJson>,
+}
 
 pub struct Page {}
 
@@ -17,18 +31,21 @@ impl Render for Page {
             return Ok("no channels found".to_string());
         }
 
-        let mut channel_list = Vec::<String>::new();
-
-        for (alias, id) in CONFIG.oshi.clone() {
-            let channel = channels.iter().find(|c| c.id == id).unwrap();
-            channel_list.push(format!(
-                "{}\n  name: {}\n  url:  {}\n  id:   {}",
-                alias,
-                channel.name,
-                &format!("https://www.youtube.com/channel/{}", channel.id).light_blue(),
-                channel.id
-            ));
-        }
+        let channel_list: Vec<String> = CONFIG
+            .oshi
+            .iter()
+            .filter_map(|(alias, id)| {
+                channels.iter().find(|c| &c.id == id).map(|channel| {
+                    format!(
+                        "{}\n  name: {}\n  url:  {}\n  id:   {}",
+                        alias,
+                        channel.name,
+                        &format!("https://www.youtube.com/channel/{}", channel.id).light_blue(),
+                        channel.id
+                    )
+                })
+            })
+            .collect();
 
         Ok(channel_list.join("\n"))
     }
@@ -40,19 +57,22 @@ impl Render for Page {
         });
 
         if channels.is_empty() {
-            return Ok("{\"channels\": []}".to_string());
+            return Ok(serde_json::to_string(&ChannelsResponse { channels: vec![] })?);
         }
 
-        let mut channel_list = Vec::<String>::new();
+        let channel_list: Vec<ChannelJson> = CONFIG
+            .oshi
+            .iter()
+            .filter_map(|(alias, id)| {
+                channels.iter().find(|c| &c.id == id).map(|channel| ChannelJson {
+                    id: channel.id.clone(),
+                    alias: alias.clone(),
+                    name: channel.name.clone(),
+                    url: format!("https://www.youtube.com/channel/{}", channel.id),
+                })
+            })
+            .collect();
 
-        for (alias, id) in CONFIG.oshi.clone() {
-            let channel = channels.iter().find(|c| c.id == id).unwrap();
-            channel_list.push(format!(
-                "{{\"id\": \"{}\", \"alias\": \"{}\", \"name\": \"{}\", \"url\": \"https://www.youtube.com/channel/{}\"}}",
-                channel.id, alias, channel.name, channel.id
-            ));
-        }
-
-        Ok(format!("{{\"channels\": [{}]}}", channel_list.join(",")))
+        Ok(serde_json::to_string(&ChannelsResponse { channels: channel_list })?)
     }
 }

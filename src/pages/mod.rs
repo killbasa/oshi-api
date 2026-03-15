@@ -1,7 +1,8 @@
-use std::{collections::HashMap, sync::Mutex};
-
 use anyhow::Result;
-use once_cell::sync::OnceCell;
+use std::{
+    collections::HashMap,
+    sync::{LazyLock, Mutex},
+};
 
 use crate::sqlite;
 
@@ -24,11 +25,14 @@ pub enum Pages {
     List,
 }
 
-static TEXT_CACHE: OnceCell<Mutex<HashMap<Option<String>, String>>> = OnceCell::new();
-static JSON_CACHE: OnceCell<Mutex<HashMap<Option<String>, String>>> = OnceCell::new();
+static TEXT_CACHE: LazyLock<Mutex<HashMap<Option<String>, String>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
+static JSON_CACHE: LazyLock<Mutex<HashMap<Option<String>, String>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
 
 pub async fn refresh_page(page: Pages) -> Result<()> {
-    if let Some(cache) = TEXT_CACHE.get() {
+    {
+        let cache = &TEXT_CACHE;
         match page {
             Pages::Root => {
                 let channels = sqlite::get_db_channels()?;
@@ -56,7 +60,8 @@ pub async fn refresh_page(page: Pages) -> Result<()> {
         }
     }
 
-    if let Some(cache) = JSON_CACHE.get() {
+    {
+        let cache = &JSON_CACHE;
         match page {
             Pages::Root => {
                 let channels = sqlite::get_db_channels()?;
@@ -89,11 +94,8 @@ pub async fn refresh_page(page: Pages) -> Result<()> {
 
 impl Render for Pages {
     async fn render_text(&self, ctx: PageContext) -> Result<String> {
-        if let Some(mutex) = TEXT_CACHE.get()
-            && let Some(content) = mutex.lock().unwrap().get(&ctx.channel_id)
-        {
+        if let Some(content) = TEXT_CACHE.lock().unwrap().get(&ctx.channel_id) {
             tracing::debug!("cache hit for {:?} text", &ctx.channel_id);
-
             return Ok(content.clone());
         }
 
@@ -104,18 +106,14 @@ impl Render for Pages {
             Pages::List => list::Page {}.render_text(ctx.clone()).await?,
         };
 
-        let cache = TEXT_CACHE.get_or_init(|| Mutex::new(HashMap::new()));
-        cache.lock().unwrap().insert(ctx.channel_id, content.clone());
+        TEXT_CACHE.lock().unwrap().insert(ctx.channel_id, content.clone());
 
         Ok(content)
     }
 
     async fn render_json(&self, ctx: PageContext) -> Result<String> {
-        if let Some(mutex) = JSON_CACHE.get()
-            && let Some(content) = mutex.lock().unwrap().get(&ctx.channel_id)
-        {
+        if let Some(content) = JSON_CACHE.lock().unwrap().get(&ctx.channel_id) {
             tracing::debug!("cache hit for {:?} json", &ctx.channel_id);
-
             return Ok(content.clone());
         }
 
@@ -126,8 +124,7 @@ impl Render for Pages {
             Pages::List => list::Page {}.render_json(ctx.clone()).await?,
         };
 
-        let cache = JSON_CACHE.get_or_init(|| Mutex::new(HashMap::new()));
-        cache.lock().unwrap().insert(ctx.channel_id, content.clone());
+        JSON_CACHE.lock().unwrap().insert(ctx.channel_id, content.clone());
 
         Ok(content)
     }

@@ -2,10 +2,17 @@ pub mod channels;
 mod utils;
 pub mod videos;
 mod xml;
-
 use serde::{Deserialize, Serialize};
+use std::{sync::LazyLock, time::Duration};
 
 use crate::api::{DbChannel, DbVideo};
+
+pub static HTTP_CLIENT: LazyLock<reqwest::Client> = LazyLock::new(|| {
+    reqwest::Client::builder()
+        .timeout(Duration::from_secs(10))
+        .build()
+        .expect("failed to build HTTP client")
+});
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct YoutubeChannel {

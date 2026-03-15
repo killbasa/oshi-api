@@ -1,11 +1,13 @@
 use anyhow::Result;
-use once_cell::sync::Lazy;
 use rusqlite::{Connection, params};
-use std::{fs, sync::Mutex};
+use std::{
+    fs,
+    sync::{LazyLock, Mutex},
+};
 
 use crate::api::{DbChannel, DbVideo};
 
-static DB: Lazy<Mutex<Connection>> = Lazy::new(|| {
+static DB: LazyLock<Mutex<Connection>> = LazyLock::new(|| {
     fs::create_dir_all("data").expect("failed to create data dir");
     let conn = Connection::open("data/db.sqlite").expect("failed to open db");
     Mutex::new(conn)

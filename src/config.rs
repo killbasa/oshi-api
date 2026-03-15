@@ -1,6 +1,4 @@
-use std::{collections::HashMap, env};
-
-use once_cell::sync::Lazy;
+use std::{collections::HashMap, env, sync::LazyLock};
 
 pub struct ServerConfig {
     pub host: String,
@@ -46,4 +44,4 @@ impl Config {
     }
 }
 
-pub static CONFIG: Lazy<Config> = Lazy::new(Config::get);
+pub static CONFIG: LazyLock<Config> = LazyLock::new(Config::get);

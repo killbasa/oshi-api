@@ -1,9 +1,9 @@
 use anyhow::{Ok, Result, anyhow};
-use reqwest::{ClientBuilder, header::ACCEPT};
+use reqwest::header::ACCEPT;
 
 use crate::config::CONFIG;
 
-use super::{YoutubeChannel, utils::ChannelApiResponse};
+use super::{HTTP_CLIENT, YoutubeChannel, utils::ChannelApiResponse};
 
 pub async fn get_channel_api(channel_id: &str) -> Result<YoutubeChannel> {
     let url = format!(
@@ -11,12 +11,11 @@ pub async fn get_channel_api(channel_id: &str) -> Result<YoutubeChannel> {
         CONFIG.youtube.apikey, channel_id
     );
 
-    let client = ClientBuilder::new()
-        .build()? //
+    let response = HTTP_CLIENT //
         .get(url)
-        .header(ACCEPT, "application/json");
-
-    let response = client.send().await?;
+        .header(ACCEPT, "application/json")
+        .send()
+        .await?;
     if response.status().as_u16() != 200 {
         return Err(anyhow!(response.status()));
     }
